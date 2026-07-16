@@ -3,6 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import fs from 'fs';
 import path from 'path';
 
 import { config } from './config';
@@ -146,9 +147,13 @@ app.use('/public/chat', chatLimiter);
 app.use('/public', customerRouter);
 
 // Serve frontend static files in production
-const staticPath = process.env.WEB_DIST_PATH
-  ? path.resolve(process.env.WEB_DIST_PATH)
-  : path.resolve(__dirname, '../../web/dist');
+function resolveStaticPath(): string {
+  if (process.env.WEB_DIST_PATH) return path.resolve(process.env.WEB_DIST_PATH);
+  const bundled = path.resolve(__dirname, '../frontend');
+  if (fs.existsSync(bundled)) return bundled;
+  return path.resolve(__dirname, '../../web/dist');
+}
+const staticPath = resolveStaticPath();
 app.use(express.static(staticPath));
 app.get('*', (_req, res) => {
   res.sendFile(path.join(staticPath, 'index.html'));

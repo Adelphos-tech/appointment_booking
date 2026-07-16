@@ -1,4 +1,5 @@
 const host = process.env.HOST || 'http://127.0.0.1:5000';
+const adminPassword = process.env.ADMIN_PASSWORD || 'Password123';
 
 async function runTests() {
   console.log('==================================================');
@@ -32,7 +33,7 @@ async function runTests() {
     const res = await fetch(`${host}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'admin@slotcare.com', password: 'Password123' })
+      body: JSON.stringify({ email: 'admin@slotcare.com', password: adminPassword })
     });
     const data = await res.json();
     if (res.status === 200 && data.token) {
