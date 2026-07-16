@@ -1,0 +1,15 @@
+{
+  "name": "slotcare-ai",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:backend": "npm --prefix apps/backend run start",
+    "dev:web": "npm --prefix apps/web run dev",
+    "build": "npm --prefix apps/backend run build && npm --prefix apps/web run build",
+    "test": "npm --prefix apps/backend run test",
+    "test:backend": "npm --prefix apps/backend run test"
+  },
+  "devDependencies": {
+    "pnpm": "^9.0.0"
+  }
+}

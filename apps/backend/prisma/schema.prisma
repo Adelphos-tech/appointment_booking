@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String?  @unique
+  description String?
+  logo        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  centres Centre[]
+  users   User[]
+}
+
+model Centre {
+  id                   String   @id @default(uuid())
+  name                 String
+  location             String
+  serviceType          String
+  openTime             String
+  closeTime            String
+  slotDurationMinutes  Int
+  prepTimeBeforeMinutes Int     @default(0)
+  prepTimeAfterMinutes  Int     @default(0)
+  workingDays          String[] @default(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"])
+  holidays             String[] @default([])
+  timezone             String   @default("Asia/Kolkata")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  staff    Staff[]
+  services Service[]
+  bookings Booking[]
+}
+
+enum EmploymentType {
+  Permanent
+  Temporary
+}
+
+enum UserStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+model Staff {
+  id              String          @id @default(uuid())
+  name            String
+  gender          String
+  role            String
+  centreId        String
+  employmentType  EmploymentType @default(Permanent)
+  dutyStartDate     String
+  dutyEndDate       String?
+  dutyStartTime     String
+  dutyEndTime       String
+  workingDays       String[]        @default(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"])
+  servicesAllowed   String[]        @default([])
+
+  centre   Centre    @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([centreId])
+}
+
+model Service {
+  id                    String  @id @default(uuid())
+  name                  String
+  centreId              String
+  durationOverrideMinutes Int?
+  price                 Decimal @default(0) @db.Decimal(10, 2)
+
+  centre   Centre    @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([centreId])
+}
+
+enum BookingStatus {
+  Available
+  Booked
+  ManuallyBooked
+  Cancelled
+  NoShow
+  Completed
+  Blocked
+}
+
+enum PaymentStatus {
+  Pending
+  Paid
+  Refunded
+  Failed
+}
+
+model Booking {
+  id              String        @id @default(uuid())
+  bookingRef      String        @unique @default(uuid())
+  customerName    String
+  customerContact String
+  customerEmail   String?
+  centreId        String
+  staffId         String
+  serviceId       String
+  slotStart       DateTime
+  slotEnd         DateTime
+  preferredGender String?
+  status          BookingStatus
+  paymentStatus   PaymentStatus @default(Pending)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  centre  Centre  @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([centreId, slotStart])
+  @@index([staffId, slotStart])
+  @@index([customerContact])
+}
+
+model User {
+  id         String     @id @default(uuid())
+  email      String     @unique
+  password   String
+  name       String?
+  role       String     @default("admin")
+  status     UserStatus @default(Pending)
+  centreIds  String[]   @default([])
+  companyId  String?
+  company    Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Waitlist {
+  id              String   @id @default(uuid())
+  customerName    String
+  customerContact String
+  centreId        String
+  serviceId       String
+  preferredGender String?
+  preferredDate   String
+  notes           String?
+  notifiedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([centreId])
+}
+
+model OptOut {
+  id              String   @id @default(uuid())
+  customerContact String   @unique
+  createdAt       DateTime @default(now())
+}
+
+model Conversation {
+  id              String   @id @default(uuid())
+  customerContact String   @unique
+  messages        Json
+  updatedAt       DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  userEmail   String?
+  action      String
+  entityType  String
+  entityId    String?
+  companyId   String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([companyId])
+  @@index([createdAt])
+}
