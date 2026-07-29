@@ -91,8 +91,8 @@ jobs:
             # Generate Prisma client
             npx prisma generate
 
-            # Apply migrations
-            npx prisma migrate deploy
+            # Apply schema changes
+            npx prisma db push --accept-data-loss
 
             # Restart PM2
             pm2 restart oppoint-backend || pm2 start dist/index.js --name oppoint-backend --cwd $DEPLOY_PATH
