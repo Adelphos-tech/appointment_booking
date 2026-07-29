@@ -76,12 +76,13 @@ jobs:
             fi
 
             # Extract new build
+            mkdir -p /tmp/deploy-new
             cd /tmp
             tar -xzf deploy.tar.gz -C /tmp/deploy-new
-            cp -r /tmp/deploy-new/dist $DEPLOY_PATH/dist
-            cp /tmp/deploy-new/package.json $DEPLOY_PATH/package.json
-            cp /tmp/deploy-new/package-lock.json $DEPLOY_PATH/package-lock.json
-            cp -r /tmp/deploy-new/prisma $DEPLOY_PATH/prisma
+            cp -r /tmp/deploy-new/apps/backend/dist $DEPLOY_PATH/dist
+            cp /tmp/deploy-new/apps/backend/package.json $DEPLOY_PATH/package.json
+            cp /tmp/deploy-new/apps/backend/package-lock.json $DEPLOY_PATH/package-lock.json
+            cp -r /tmp/deploy-new/apps/backend/prisma $DEPLOY_PATH/prisma
 
             # Install dependencies
             cd $DEPLOY_PATH
