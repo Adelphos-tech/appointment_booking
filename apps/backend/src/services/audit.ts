@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import { logger } from './logger';
 
 export interface AuditContext {
   userId?: string;
@@ -31,7 +32,7 @@ export async function logAudit(
     });
   } catch (err) {
     // Audit logging should never break the main request
-    console.error('Failed to write audit log:', err);
+    logger.error('audit.write.failed', { error: (err as Error).message });
   }
 }
 

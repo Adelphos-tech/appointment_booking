@@ -3,6 +3,7 @@ import { addMinutes, format } from 'date-fns';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../prisma';
 import { sendNotification } from './notifications';
+import { logger } from './logger';
 
 export interface ToolContext {
   isAuthenticated?: boolean;
@@ -200,7 +201,7 @@ export async function executeTool(name: string, args: string, ctx: ToolContext =
       to: booking.customerContact,
       channel: 'sms',
       body: `Hi ${booking.customerName}, your appointment at ${booking.centre.name} is confirmed for ${booking.slotStart.toLocaleString()}.`,
-    }).catch((err) => console.error('Failed to send notification', err));
+    }).catch((err) => logger.error('notification.sms.failed', { error: err.message }));
 
     if (booking.customerEmail) {
       await sendNotification({
@@ -208,7 +209,7 @@ export async function executeTool(name: string, args: string, ctx: ToolContext =
         channel: 'email',
         subject: 'Appointment Confirmation',
         body: `Hi ${booking.customerName},\n\nYour appointment at ${booking.centre.name} is confirmed for ${booking.slotStart.toLocaleString()}.\n\nService: ${booking.service.name}\nStaff: ${booking.staff.name}\n\nThank you,\nSlotcare AI`,
-      }).catch((err) => console.error('Failed to send email', err));
+      }).catch((err) => logger.error('notification.email.failed', { error: err.message }));
     }
 
     return JSON.stringify({

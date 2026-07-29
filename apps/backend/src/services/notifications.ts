@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { logger } from './logger';
 
 export interface NotificationPayload {
   to: string;
@@ -34,14 +35,14 @@ export async function sendNotification(payload: NotificationPayload): Promise<vo
     return;
   }
 
-  console.log(`[${payload.channel.toUpperCase()} MOCK] to=${payload.to}: ${payload.body}`);
+  logger.info('notification.mock', { channel: payload.channel, to: payload.to, body: payload.body });
 }
 
 async function sendWhatsApp(to: string, body: string): Promise<void> {
   const { phoneNumberId, accessToken } = config.whatsapp;
 
   if (!phoneNumberId || !accessToken) {
-    console.log(`[WHATSAPP MOCK] to=${to}: ${body}`);
+    logger.info('whatsapp.mock', { to, body });
     return;
   }
 
@@ -70,12 +71,12 @@ async function sendWhatsApp(to: string, body: string): Promise<void> {
   }
 
   const data = await res.json() as any;
-  console.log(`[WHATSAPP] Sent to ${to}, message_id=${data?.messages?.[0]?.id}`);
+  logger.info('whatsapp.sent', { to, messageId: data?.messages?.[0]?.id });
 }
 
 async function sendEmail(payload: NotificationPayload): Promise<void> {
   if (!config.smtp.host || !config.smtp.user || !config.smtp.pass) {
-    console.log(`[EMAIL MOCK] to=${payload.to}: ${payload.subject || ''} - ${payload.body}`);
+    logger.info('email.mock', { to: payload.to, subject: payload.subject || '', body: payload.body });
     return;
   }
   const nodemailer = await import('nodemailer');

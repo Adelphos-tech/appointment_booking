@@ -36,22 +36,26 @@ app.use(helmet({
       upgradeInsecureRequests: null,
     },
   },
-  hsts: {
+  hsts: process.env.FORCE_HTTPS === 'true' ? {
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true,
-  },
+  } : false,
 }));
 
 if (process.env.NODE_ENV === 'production') {
   if (!config.databaseUrl.includes('sslmode=') && !config.databaseUrl.includes('ssl=')) {
-    console.warn('WARNING: DATABASE_URL does not include SSL parameters. Production database connections should use sslmode=require.');
+    logger.warn('database.ssl.missing', { message: 'DATABASE_URL does not include SSL parameters. Production database connections should use sslmode=require.' });
   }
-  app.use((req, res, next) => {
-    const isSecure = req.secure || (req.headers['x-forwarded-proto'] as string) === 'https';
-    if (isSecure) return next();
-    res.redirect(301, `https://${req.headers.host}${req.url}`);
-  });
+  // Only force HTTPS if behind a proxy that sets x-forwarded-proto
+  // When serving directly on HTTP (no nginx/SSL), skip the redirect
+  if (process.env.FORCE_HTTPS === 'true') {
+    app.use((req, res, next) => {
+      const isSecure = req.secure || (req.headers['x-forwarded-proto'] as string) === 'https';
+      if (isSecure) return next();
+      res.redirect(301, `https://${req.headers.host}${req.url}`);
+    });
+  }
 }
 
 // CORS configuration — restrict origins in production

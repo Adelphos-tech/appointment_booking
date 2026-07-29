@@ -8,6 +8,14 @@ import { prisma } from '../prisma';
 import { sendNotification } from '../services/notifications';
 import { auditContextFromRequest, logAudit } from '../services/audit';
 import { stripHtmlTags } from '../services/sanitize';
+import { logger } from '../services/logger';
+
+function generateBookingRef(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let ref = 'SLC-';
+  for (let i = 0; i < 6; i++) ref += chars[Math.floor(Math.random() * chars.length)];
+  return ref;
+}
 
 const router = Router();
 
@@ -121,34 +129,62 @@ router.post('/', authenticate, requireApproved, validateBody(bookingSchema), asy
     const slotStart = new Date(req.body.slotStart);
     const slotEnd = new Date(req.body.slotEnd);
 
-    // Prevent double-booking
-    await checkDoubleBooking(req.body.staffId, slotStart, slotEnd);
+    const booking = await prisma.$transaction(async (tx) => {
+      const conflict = await tx.booking.findFirst({
+        where: {
+          staffId: req.body.staffId,
+          status: { in: ['Booked', 'ManuallyBooked', 'Blocked'] },
+          slotStart: { lt: slotEnd },
+          slotEnd: { gt: slotStart },
+        },
+      });
+      if (conflict) {
+        throw new AppError(409, 'This time slot is already booked for the selected staff member.');
+      }
 
-    const data = {
-      ...req.body,
-      slotStart,
-      slotEnd,
-      status: req.body.status || 'Booked',
-    };
+      let bookingRef = generateBookingRef();
+      let existing = await tx.booking.findUnique({ where: { bookingRef } });
+      let attempts = 0;
+      while (existing && attempts < 5) {
+        bookingRef = generateBookingRef();
+        existing = await tx.booking.findUnique({ where: { bookingRef } });
+        attempts++;
+      }
 
-    const booking = await prisma.booking.create({
-      data,
-      include: { centre: true, staff: true, service: true },
+      return tx.booking.create({
+        data: {
+          bookingRef,
+          customerName: req.body.customerName,
+          customerContact: req.body.customerContact,
+          customerEmail: req.body.customerEmail || undefined,
+          centreId: req.body.centreId,
+          staffId: req.body.staffId,
+          serviceId: req.body.serviceId,
+          slotStart,
+          slotEnd,
+          preferredGender: req.body.preferredGender || undefined,
+          status: req.body.status || 'ManuallyBooked',
+          paymentStatus: req.body.paymentStatus,
+        },
+        include: { centre: true, staff: true, service: true },
+      });
+    }, {
+      isolationLevel: 'Serializable',
     });
 
     await sendNotification({
       to: booking.customerContact,
       channel: 'sms',
-      body: `Hi ${booking.customerName}, your appointment at ${booking.centre.name} is confirmed for ${booking.slotStart.toLocaleString()}.`,
-    }).catch((err) => console.error('Failed to send notification', err));
+      body: `Hi ${booking.customerName}, your appointment at ${booking.centre.name} is confirmed for ${booking.slotStart.toLocaleString()}. Ref: ${booking.bookingRef}`,
+    }).catch((err) => logger.error('notification.sms.failed', { error: err.message }));
 
     if (booking.customerEmail) {
       await sendNotification({
         to: booking.customerEmail,
         channel: 'email',
         subject: 'Appointment Confirmation',
-        body: `Hi ${booking.customerName},\n\nYour appointment at ${booking.centre.name} is confirmed for ${booking.slotStart.toLocaleString()}.\n\nService: ${booking.service.name}\nStaff: ${booking.staff.name}\n\nThank you,\nSlotcare AI`,
-      }).catch((err) => console.error('Failed to send email', err));
+        body: `Hi ${booking.customerName},\n\nYour appointment at ${booking.centre.name} is confirmed for ${booking.slotStart.toLocaleString()}.\n\nService: ${booking.service.name}\nStaff: ${booking.staff.name}\nBooking Ref: ${booking.bookingRef}\n\nThank you,\nSlotcare AI`,
+      }).catch((err) => logger.error('notification.email.failed', { error: err.message }));
     }
 
     await logAudit('CREATE', 'Booking', booking.id, { customerName: booking.customerName, centreId: booking.centreId, staffId: booking.staffId, serviceId: booking.serviceId }, auditContextFromRequest(req));

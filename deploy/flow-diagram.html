@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slotcare AI — How It Works</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f172a;font-family:'Inter',-apple-system,sans-serif;color:#e2e8f0;overflow-x:hidden}
+.hero{text-align:center;padding:50px 20px 30px;background:linear-gradient(180deg,#1e293b,#0f172a)}
+.hero h1{font-size:2rem;background:linear-gradient(90deg,#3b82f6,#8b5cf6,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.hero p{color:#94a3b8;font-size:1rem}
+.hero a{display:inline-block;margin-top:16px;padding:10px 28px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border-radius:10px;text-decoration:none;font-weight:600;font-size:.9rem;box-shadow:0 4px 20px rgba(59,130,246,.3)}
+.tabs{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;padding:24px}
+.tab{padding:12px 24px;border-radius:10px;cursor:pointer;font-size:.9rem;font-weight:700;border:2px solid transparent;transition:all .25s;user-select:none}
+.tab.active{transform:translateY(-2px)}
+.tab[data-c="blue"]{background:rgba(59,130,246,.15);color:#60a5fa}.tab[data-c="blue"].active{background:#3b82f6;color:#fff;box-shadow:0 4px 16px rgba(59,130,246,.4)}
+.tab[data-c="purple"]{background:rgba(139,92,246,.15);color:#a78bfa}.tab[data-c="purple"].active{background:#8b5cf6;color:#fff;box-shadow:0 4px 16px rgba(139,92,246,.4)}
+.tab[data-c="green"]{background:rgba(34,197,94,.15);color:#4ade80}.tab[data-c="green"].active{background:#22c55e;color:#fff;box-shadow:0 4px 16px rgba(34,197,94,.4)}
+.tab[data-c="orange"]{background:rgba(249,115,22,.15);color:#fb923c}.tab[data-c="orange"].active{background:#f97316;color:#fff;box-shadow:0 4px 16px rgba(249,115,22,.4)}
+
+.panel{display:none;max-width:900px;margin:0 auto;padding:10px 20px 60px}
+.panel.active{display:block}
+
+/* Credential card */
+.creds{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
+.cred{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px 20px;text-align:center}
+.cred .icon{font-size:1.5rem;margin-bottom:4px}
+.cred .name{font-size:.7rem;color:#94a3b8;text-transform:uppercase;letter-spacing:1px}
+.cred .email{font-size:.85rem;font-weight:600;margin-top:2px}
+.cred .pass{font-size:.75rem;color:#64748b;margin-top:2px}
+
+/* Step flow */
+.steps{display:flex;flex-direction:column;align-items:center;gap:0}
+.step{display:flex;align-items:flex-start;gap:16px;position:relative;width:100%;max-width:700px}
+.step-num{flex-shrink:0;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:#fff;z-index:2;position:relative}
+.step-content{flex:1;background:#1e293b;border:1px solid #334155;border-radius:14px;padding:16px 20px;margin-bottom:24px;transition:transform .2s,border-color .2s}
+.step-content:hover{transform:translateX(4px);border-color:#475569}
+.step-content .title{font-size:.95rem;font-weight:700;margin-bottom:4px}
+.step-content .desc{font-size:.8rem;color:#94a3b8;line-height:1.5}
+.step-content .tag{display:inline-block;padding:2px 10px;border-radius:6px;font-size:.65rem;font-weight:700;margin-top:8px}
+.tag-blue{background:rgba(59,130,246,.2);color:#60a5fa}
+.tag-purple{background:rgba(139,92,246,.2);color:#a78bfa}
+.tag-green{background:rgba(34,197,94,.2);color:#4ade80}
+.tag-orange{background:rgba(249,115,22,.2);color:#fb923c}
+.tag-red{background:rgba(239,68,68,.2);color:#f87171}
+
+/* Connector line */
+.step:not(:last-child) .step-num::after{content:'';position:absolute;top:44px;left:50%;transform:translateX(-50%);width:3px;height:calc(100% + 24px - 44px);background:linear-gradient(180deg,#334155,#1e293b);border-radius:2px;z-index:0}
+
+/* Branch */
+.branch{display:flex;gap:40px;justify-content:center;flex-wrap:wrap;margin:0 0 30px 60px}
+.branch-col{display:flex;flex-direction:column;align-items:center;gap:0}
+.branch-label{font-size:.75rem;font-weight:700;padding:4px 12px;border-radius:8px;margin-bottom:12px}
+.branch-yes{background:rgba(34,197,94,.2);color:#4ade80}
+.branch-no{background:rgba(239,68,68,.2);color:#f87171}
+
+/* Mini visual */
+.visual{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.v-chip{padding:6px 14px;border-radius:8px;font-size:.75rem;font-weight:600}
+.v-blue{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+.v-purple{background:rgba(139,92,246,.15);color:#c4b5fd;border:1px solid rgba(139,92,246,.3)}
+.v-green{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.3)}
+.v-orange{background:rgba(249,115,22,.15);color:#fdba74;border:1px solid rgba(249,115,22,.3)}
+.v-gray{background:rgba(100,116,139,.15);color:#cbd5e1;border:1px solid rgba(100,116,139,.3)}
+.v-red{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+.v-arrow{color:#475569;font-size:.8rem}
+
+/* Dashboard mock */
+.mock-dashboard{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.mock-card{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:10px;text-align:center}
+.mock-card .num{font-size:1.2rem;font-weight:800;color:#60a5fa}
+.mock-card .lbl{font-size:.6rem;color:#94a3b8;text-transform:uppercase}
+
+/* Sidebar mock */
+.mock-sidebar{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.mock-sidebar .v-chip{font-size:.65rem;padding:4px 10px}
+
+/* Screenshots mock */
+.mock-screen{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px;margin-top:10px}
+.mock-screen .bar{height:8px;background:#334155;border-radius:4px;margin-bottom:6px}
+.mock-screen .bar.short{width:60%}
+.mock-screen .bar.medium{width:80%}
+
+/* Calendar mock */
+.mock-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}
+.mock-cal .day{aspect-ratio:1;background:rgba(51,65,85,.5);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#64748b}
+.mock-cal .day.active{background:rgba(59,130,246,.3);color:#93c5fd;font-weight:700}
+.mock-cal .day.booked{background:rgba(34,197,94,.2);color:#4ade80}
+
+/* Chat mock */
+.mock-chat{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.mock-bubble{padding:8px 14px;border-radius:12px;max-width:70%;font-size:.7rem}
+.mock-bubble.user{background:#3b82f6;color:#fff;align-self:flex-end}
+.mock-bubble.ai{background:#334155;color:#cbd5e1;align-self:flex-start}
+
+/* Booking form mock */
+.mock-form{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.mock-input{height:32px;background:rgba(51,65,85,.3);border:1px solid #334155;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:.7rem;color:#64748b}
+.mock-btn{height:36px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#fff}
+
+/* Section divider */
+.divider{width:100%;height:1px;background:linear-gradient(90deg,transparent,#334155,transparent);margin:30px 0}
+
+/* Role badge */
+.role-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;font-size:.75rem;font-weight:700;margin-bottom:20px}
+.role-badge.blue{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3)}
+.role-badge.purple{background:rgba(139,92,246,.15);color:#a78bfa;border:1px solid rgba(139,92,246,.3)}
+.role-badge.green{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3)}
+.role-badge.orange{background:rgba(249,115,22,.15);color:#fb923c;border:1px solid rgba(249,115,22,.3)}
+
+/* Result banner */
+.result{display:flex;align-items:center;gap:8px;padding:12px 20px;border-radius:10px;font-size:.85rem;font-weight:600;margin-top:16px}
+.result-good{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#4ade80}
+.result-bad{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171}
+
+/* Mobile mock */
+.mock-mobile{width:120px;height:200px;border:3px solid #334155;border-radius:16px;margin:10px auto;position:relative;background:#0f172a}
+.mock-mobile .notch{width:40px;height:6px;background:#334155;border-radius:4px;margin:6px auto}
+.mock-mobile .line{height:4px;background:#334155;border-radius:2px;margin:4px 8px}
+.mock-mobile .line.s{width:50%}
+.mock-mobile .hamburger{position:absolute;top:8px;right:8px;width:16px;height:12px;display:flex;flex-direction:column;justify-content:space-between}
+.mock-mobile .hamburger span{height:2px;background:#64748b;border-radius:1px}
+
+.footer{text-align:center;padding:30px;color:#475569;font-size:.8rem;border-top:1px solid #1e293b}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Slotcare AI</h1>
+  <p>How everything works — explained simply</p>
+  <a href="http://43.242.227.51:4000" target="_blank">Open Live App →</a>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="admin" data-c="blue">🔵 Admin / Manager</div>
+  <div class="tab" data-tab="owner" data-c="purple">🟣 Company Owner</div>
+  <div class="tab" data-tab="customer" data-c="green">🟢 Customer</div>
+  <div class="tab" data-tab="edge" data-c="orange">🟠 Safety & Errors</div>
+</div>
+
+<!-- ==================== ADMIN ==================== -->
+<div class="panel active" id="panel-admin">
+  <div class="role-badge blue">👤 Who: Branch Manager or Super Admin</div>
+  <div class="creds">
+    <div class="cred"><div class="icon">👑</div><div class="name">Super Admin</div><div class="email">habib@slotcare.com</div><div class="pass">FZNpYfiENTX9G7JAnUNE8Q==</div></div>
+    <div class="cred"><div class="icon">🔧</div><div class="name">Admin</div><div class="email">admin@slotcare.com</div><div class="pass">FZNpYfiENTX9G7JAnUNE8Q==</div></div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">1</div>
+      <div class="step-content">
+        <div class="title">Go to the Login Page</div>
+        <div class="desc">Open the app and you'll see the login screen. Enter your email and password.</div>
+        <div class="mock-form">
+          <div class="mock-input">✉️ admin@slotcare.com</div>
+          <div class="mock-input">🔒 ••••••••••••</div>
+          <div class="mock-btn">Sign In</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">2</div>
+      <div class="step-content">
+        <div class="title">Dashboard — Your Overview</div>
+        <div class="desc">After login, you land on the dashboard. It shows a quick summary of everything: how many companies, centres, staff, services, bookings, and waitlist entries you have.</div>
+        <div class="mock-dashboard">
+          <div class="mock-card"><div class="num">3</div><div class="lbl">Companies</div></div>
+          <div class="mock-card"><div class="num">5</div><div class="lbl">Centres</div></div>
+          <div class="mock-card"><div class="num">12</div><div class="lbl">Staff</div></div>
+          <div class="mock-card"><div class="num">8</div><div class="lbl">Services</div></div>
+          <div class="mock-card"><div class="num">47</div><div class="lbl">Bookings</div></div>
+          <div class="mock-card"><div class="num">3</div><div class="lbl">Waitlist</div></div>
+        </div>
+        <span class="tag tag-blue">Page: Dashboard</span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">3</div>
+      <div class="step-content">
+        <div class="title">Sidebar Menu — Navigate Everywhere</div>
+        <div class="desc">On the left side, there's a menu to jump to any section. Click any item to go there.</div>
+        <div class="mock-sidebar">
+          <span class="v-chip v-blue">📊 Dashboard</span>
+          <span class="v-chip v-blue">🏢 Companies</span>
+          <span class="v-chip v-blue">🏠 Centres</span>
+          <span class="v-chip v-blue">👥 Staff</span>
+          <span class="v-chip v-blue">🛎️ Services</span>
+          <span class="v-chip v-blue">📅 Bookings</span>
+          <span class="v-chip v-blue">⏰ Availability</span>
+          <span class="v-chip v-blue">📈 Analytics</span>
+          <span class="v-chip v-blue">📋 Waitlist</span>
+          <span class="v-chip v-blue">💬 Chat</span>
+          <span class="v-chip v-blue">👤 Users</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">4</div>
+      <div class="step-content">
+        <div class="title">Companies — Add or Edit</div>
+        <div class="desc">See all companies in a table. Click "Add Company" to create a new one (fill in name and description). Click the ✏️ pencil icon to edit an existing company's name.</div>
+        <div class="visual">
+          <span class="v-chip v-gray">Company Table</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-blue">+ Add Company</span>
+          <span class="v-arrow">or</span>
+          <span class="v-chip v-blue">✏️ Edit</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">5</div>
+      <div class="step-content">
+        <div class="title">Centres — Your Branches</div>
+        <div class="desc">Each company has centres (branches). Add a centre by filling in its name, location, opening hours, and working days. The system uses these to generate available time slots.</div>
+        <div class="visual">
+          <span class="v-chip v-gray">Centre List</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-blue">+ Add Centre</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-green">Centre Created</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">6</div>
+      <div class="step-content">
+        <div class="title">Staff — Your Team</div>
+        <div class="desc">Add staff members like therapists or trainers. Fill in their name, gender, role, which centre they work at, their working hours, and which services they can perform.</div>
+        <div class="visual">
+          <span class="v-chip v-gray">Staff List</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-blue">+ Add Staff</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-green">Form Opens</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">7</div>
+      <div class="step-content">
+        <div class="title">Services — What You Offer</div>
+        <div class="desc">Create services like "Deep Tissue Massage" or "Personal Training". Set the duration and price. Each service belongs to a centre.</div>
+        <div class="visual">
+          <span class="v-chip v-gray">Service List</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-blue">+ Add Service</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-green">Form Opens</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">8</div>
+      <div class="step-content">
+        <div class="title">Bookings — Calendar View</div>
+        <div class="desc">See all bookings in a calendar. Click on any day to see that day's appointments. You can see who booked, which service, which staff member, and the time.</div>
+        <div class="mock-cal">
+          <div class="day">Mon</div><div class="day">Tue</div><div class="day active">Wed</div><div class="day">Thu</div><div class="day">Fri</div><div class="day">Sat</div><div class="day">Sun</div>
+          <div class="day">1</div><div class="day booked">2</div><div class="day active">3</div><div class="day booked">4</div><div class="day">5</div><div class="day booked">6</div><div class="day">7</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">9</div>
+      <div class="step-content">
+        <div class="title">AI Chat — Your Smart Assistant</div>
+        <div class="desc">Ask questions like "Show me today's bookings" and the AI will answer. It knows about your bookings, staff, and services.</div>
+        <div class="mock-chat">
+          <div class="mock-bubble user">Show me today's bookings</div>
+          <div class="mock-bubble ai">You have 5 bookings today. First one is at 10:00 AM with Emma Stone for Deep Tissue Massage...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">10</div>
+      <div class="step-content">
+        <div class="title">Users — Approve New Owners (Super Admin only)</div>
+        <div class="desc">When someone registers as a company owner, they appear here as "Pending". Click Approve to let them log in and create their company.</div>
+        <div class="visual">
+          <span class="v-chip v-red">⏳ Pending Owner</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-blue">✅ Approve</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-green">Owner can now log in</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">11</div>
+      <div class="step-content">
+        <div class="title">Logout</div>
+        <div class="desc">Click the Logout button when you're done. You'll be taken back to the login page.</div>
+        <div class="visual">
+          <span class="v-chip v-blue">Click Logout</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-gray">Back to Login</span>
+        </div>
+        <div class="result result-good">✅ Admin flow complete</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== OWNER ==================== -->
+<div class="panel" id="panel-owner">
+  <div class="role-badge purple">👤 Who: New business owner who wants to use Slotcare</div>
+  <div class="creds">
+    <div class="cred"><div class="icon">🆕</div><div class="name">New Owner</div><div class="email">owner@test.com</div><div class="pass">TestPass123!</div></div>
+    <div class="cred"><div class="icon">👑</div><div class="name">Super Admin approves</div><div class="email">habib@slotcare.com</div><div class="pass">FZNpYfiENTX9G7JAnUNE8Q==</div></div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">1</div>
+      <div class="step-content">
+        <div class="title">Register Your Account</div>
+        <div class="desc">Go to the Register page. Fill in your name, email, and password. Click "Create Account".</div>
+        <div class="mock-form">
+          <div class="mock-input">👤 Your name</div>
+          <div class="mock-input">✉️ your@email.com</div>
+          <div class="mock-input">🔒 Choose a password</div>
+          <div class="mock-btn">Create Account</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">2</div>
+      <div class="step-content">
+        <div class="title">Wait for Approval</div>
+        <div class="desc">Your account is now "Pending". You can't log in yet. The Super Admin needs to approve you first.</div>
+        <div class="result result-bad">⏳ Status: Pending — Please wait for approval</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">3</div>
+      <div class="step-content">
+        <div class="title">Super Admin Approves You</div>
+        <div class="desc">The Super Admin goes to the Users page, finds your pending account, and clicks "Approve". Now your status changes to "Approved".</div>
+        <div class="visual">
+          <span class="v-chip v-red">⏳ Pending</span>
+          <span class="v-arrow">→ Super Admin clicks Approve →</span>
+          <span class="v-chip v-green">✅ Approved</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">4</div>
+      <div class="step-content">
+        <div class="title">Log In</div>
+        <div class="desc">Now you can log in with your email and password. You'll see the dashboard.</div>
+        <div class="mock-form">
+          <div class="mock-input">✉️ owner@test.com</div>
+          <div class="mock-input">🔒 ••••••••</div>
+          <div class="mock-btn">Sign In</div>
+        </div>
+        <div class="result result-good">✅ Login successful</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">5</div>
+      <div class="step-content">
+        <div class="title">Create Your Company</div>
+        <div class="desc">Since you're new, you don't have a company yet. Go to the Companies page and you'll see a "Create My Company" button. Fill in your company name and description.</div>
+        <div class="visual">
+          <span class="v-chip v-purple">No company yet</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-purple">Create My Company</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-green">Company Created!</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">6</div>
+      <div class="step-content">
+        <div class="title">Set Up Your Business</div>
+        <div class="desc">Now you have full access! You can add centres (branches), hire staff, create services, manage bookings, and more — just like the Admin.</div>
+        <div class="mock-sidebar">
+          <span class="v-chip v-purple">🏠 Add Centres</span>
+          <span class="v-chip v-purple">👥 Add Staff</span>
+          <span class="v-chip v-purple">🛎️ Add Services</span>
+          <span class="v-chip v-purple">📅 View Bookings</span>
+          <span class="v-chip v-purple">💬 AI Chat</span>
+        </div>
+        <div class="result result-good">✅ Owner flow complete — business is set up!</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CUSTOMER ==================== -->
+<div class="panel" id="panel-customer">
+  <div class="role-badge green">👤 Who: A customer who wants to book an appointment</div>
+  <div class="creds">
+    <div class="cred"><div class="icon">🟢</div><div class="name">No account needed</div><div class="email">Just visit the booking page</div><div class="pass">No password required</div></div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#22c55e,#15803d)">1</div>
+      <div class="step-content">
+        <div class="title">Open the Booking Page</div>
+        <div class="desc">Go to the booking page. You can use the general page or a company's direct link (like /book/aurora). No login needed!</div>
+        <div class="visual">
+          <span class="v-chip v-green">/book</span>
+          <span class="v-arrow">or</span>
+          <span class="v-chip v-green">/book/aurora</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#22c55e,#15803d)">2</div>
+      <div class="step-content">
+        <div class="title">Choose a Company</div>
+        <div class="desc">If you're on the general page, pick which company you want to book with from the dropdown.</div>
+        <div class="mock-form">
+          <div class="mock-input">🏢 Select a company ▾</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#22c55e,#15803d)">3</div>
+      <div class="step-content">
+        <div class="title">Pick a Centre and Service</div>
+        <div class="desc">Select which branch you want to visit, then choose the service you'd like (e.g. "Deep Tissue Massage").</div>
+        <div class="visual">
+          <span class="v-chip v-green">Select Centre</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-green">Select Service</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#22c55e,#15803d)">4</div>
+      <div class="step-content">
+        <div class="title">Choose a Date and Time</div>
+        <div class="desc">Pick a date, then choose from the available time slots. Only open slots are shown — booked ones are greyed out.</div>
+        <div class="mock-cal">
+          <div class="day">Mon</div><div class="day">Tue</div><div class="day active">Wed</div><div class="day">Thu</div><div class="day">Fri</div><div class="day">Sat</div><div class="day">Sun</div>
+          <div class="day">1</div><div class="day">2</div><div class="day active">3</div><div class="day">4</div><div class="day">5</div><div class="day">6</div><div class="day">7</div>
+        </div>
+        <div class="visual" style="margin-top:8px">
+          <span class="v-chip v-green">10:00 AM</span>
+          <span class="v-chip v-gray">11:00 (booked)</span>
+          <span class="v-chip v-green">12:00 PM</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#22c55e,#15803d)">5</div>
+      <div class="step-content">
+        <div class="title">Fill in Your Details</div>
+        <div class="desc">Enter your name, phone number, and email so the business can contact you.</div>
+        <div class="mock-form">
+          <div class="mock-input">👤 Your name</div>
+          <div class="mock-input">📱 Your phone number</div>
+          <div class="mock-input">✉️ Your email</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#22c55e,#15803d)">6</div>
+      <div class="step-content">
+        <div class="title">Confirm Your Booking</div>
+        <div class="desc">Click the "Book" button. You'll get a booking reference number. Save it — you'll need it to find or cancel your booking later.</div>
+        <div class="mock-btn">Book Appointment</div>
+        <div class="result result-good">✅ Booking confirmed! Ref: #ABC123</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#22c55e,#15803d)">7</div>
+      <div class="step-content">
+        <div class="title">Find Your Bookings</div>
+        <div class="desc">Go to "My Bookings" page. Enter your phone number and click Search. You'll see all your upcoming and past appointments.</div>
+        <div class="mock-form">
+          <div class="mock-input">📱 Enter your phone number</div>
+          <div class="mock-btn">Search</div>
+        </div>
+        <div class="visual" style="margin-top:8px">
+          <span class="v-chip v-green">📅 Upcoming</span>
+          <span class="v-chip v-gray">📋 Past</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#22c55e,#15803d)">8</div>
+      <div class="step-content">
+        <div class="title">Chat with AI for Help</div>
+        <div class="desc">On the booking page, click the "AI Chat" button. Ask questions like "What services are available?" and the AI will help you.</div>
+        <div class="mock-chat">
+          <div class="mock-bubble user">What services are available?</div>
+          <div class="mock-bubble ai">We offer Deep Tissue Massage (60 min, $120), Aromatherapy Facial (45 min, $95), and more!</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#22c55e,#15803d)">9</div>
+      <div class="step-content">
+        <div class="title">Cancel if Needed</div>
+        <div class="desc">Found your booking? You can cancel it by clicking "Cancel". You'll need to confirm with the same phone number you used to book.</div>
+        <div class="visual">
+          <span class="v-chip v-green">Find booking</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-red">Cancel</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-gray">Cancelled</span>
+        </div>
+        <div class="result result-good">✅ Customer flow complete</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== EDGE CASES ==================== -->
+<div class="panel" id="panel-edge">
+  <div class="role-badge orange">🛡️ What happens when things go wrong</div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#f97316,#c2410c)">1</div>
+      <div class="step-content">
+        <div class="title">Someone visits a page that doesn't exist</div>
+        <div class="desc">If a user types a wrong URL like /random-page, the app doesn't crash. It just shows the main page or redirects to login.</div>
+        <div class="visual">
+          <span class="v-chip v-orange">Wrong URL</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-green">No crash — handled smoothly</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#f97316,#c2410c)">2</div>
+      <div class="step-content">
+        <div class="title">Someone's login expires</div>
+        <div class="desc">If your login token becomes invalid (expired or tampered with), the app automatically detects it when it tries to load data. It clears your login and sends you back to the login page. You won't be stuck on a broken page.</div>
+        <div class="visual">
+          <span class="v-chip v-red">Token expired</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-orange">App detects it</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-orange">Clears login</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-green">Sends to Login page</span>
+        </div>
+        <div class="result result-good">✅ User is safely redirected to login</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#f97316,#c2410c)">3</div>
+      <div class="step-content">
+        <div class="title">Unapproved user tries to log in</div>
+        <div class="desc">If a company owner registers but hasn't been approved yet, and they try to access the dashboard, the app kicks them back to login. This prevents unapproved people from seeing anything.</div>
+        <div class="visual">
+          <span class="v-chip v-red">Pending user</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-orange">Tries to access dashboard</span>
+          <span class="v-arrow">→</span>
+          <span class="v-chip v-green">Sent back to login</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num" style="background:linear-gradient(135deg,#f97316,#c2410c)">4</div>
+      <div class="step-content">
+        <div class="title">Mobile phone view</div>
+        <div class="desc">The app works on mobile phones too. On small screens, the sidebar turns into a hamburger menu. Everything should fit without horizontal scrolling.</div>
+        <div style="display:flex;gap:30px;justify-content:center;align-items:flex-start;margin-top:10px">
+          <div class="mock-mobile">
+            <div class="notch"></div>
+            <div class="hamburger"><span></span><span></span><span></span></div>
+            <div class="line"></div>
+            <div class="line s"></div>
+            <div class="line"></div>
+            <div class="line s"></div>
+            <div class="line"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;justify-content:center;padding-top:20px">
+            <span class="v-chip v-green">📱 Hamburger menu appears</span>
+            <span class="v-chip v-green">📱 No horizontal scroll</span>
+            <span class="v-chip v-green">📱 Everything fits on screen</span>
+          </div>
+        </div>
+        <div class="result result-good">✅ Safety & error handling complete</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Slotcare AI — Visual Flow Guide · <a href="http://43.242.227.51:4000" target="_blank" style="color:#3b82f6;text-decoration:none">Open Live App</a>
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>

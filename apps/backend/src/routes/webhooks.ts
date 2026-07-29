@@ -7,6 +7,7 @@ import { prisma } from '../prisma';
 import { agentTools, bookingAssistantSystemPrompt, chatCompletion, sanitizeMessages } from '../services/ai';
 import { executeTool } from '../services/agent';
 import { sendNotification } from '../services/notifications';
+import { logger } from '../services/logger';
 
 const router = Router();
 
@@ -102,7 +103,7 @@ router.post('/whatsapp', async (req, res, next) => {
       to: customerContact,
       channel: 'whatsapp',
       body: reply,
-    }).catch((err) => console.error('Failed to send WhatsApp reply', err));
+    }).catch((err) => logger.error('whatsapp.reply.failed', { error: err.message }));
 
     res.sendStatus(200);
   } catch (err) {

@@ -1,6 +1,7 @@
 import Groq from 'groq-sdk';
 
 import { config } from '../config';
+import { logger } from './logger';
 
 const groqClient = config.groqApiKey
   ? new Groq({ apiKey: config.groqApiKey })
@@ -165,7 +166,7 @@ export async function chatCompletion(
     try {
       return await groqCompletion(messages, systemPrompt, tools);
     } catch (err) {
-      console.warn('Groq failed, falling back to Ollama:', err);
+      logger.warn('groq.fallback', { error: (err as Error).message });
       return ollamaCompletion(messages, systemPrompt, tools);
     }
   }

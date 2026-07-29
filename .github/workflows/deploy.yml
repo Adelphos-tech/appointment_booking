@@ -1,0 +1,112 @@
+name: CD - Deploy to Server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    needs: []
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend dependencies
+        working-directory: apps/backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: apps/backend
+        run: npx prisma generate
+
+      - name: Build backend
+        working-directory: apps/backend
+        run: npm run build
+
+      - name: Install frontend dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: apps/web
+        run: npm run build
+
+      - name: Copy frontend to backend dist
+        run: cp -r apps/web/dist apps/backend/dist/frontend
+
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy-pkg/apps/backend
+          cp -r apps/backend/dist deploy-pkg/apps/backend/
+          cp apps/backend/package.json deploy-pkg/apps/backend/
+          cp apps/backend/package-lock.json deploy-pkg/apps/backend/
+          cp -r apps/backend/prisma deploy-pkg/apps/backend/
+          tar -czf deploy.tar.gz -C deploy-pkg .
+
+      - name: Upload to server via SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_SERVER_IP }}
+          username: ${{ secrets.DEPLOY_SERVER_USER }}
+          password: ${{ secrets.DEPLOY_SERVER_PASSWORD }}
+          source: deploy.tar.gz
+          target: /tmp/
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_SERVER_IP }}
+          username: ${{ secrets.DEPLOY_SERVER_USER }}
+          password: ${{ secrets.DEPLOY_SERVER_PASSWORD }}
+          script: |
+            set -e
+            DEPLOY_PATH="/var/www/oppoint_booking/apps/backend"
+
+            # Backup current build
+            if [ -d "$DEPLOY_PATH/dist" ]; then
+              cp -r $DEPLOY_PATH/dist $DEPLOY_PATH/dist.bak.$(date +%s)
+            fi
+
+            # Extract new build
+            cd /tmp
+            tar -xzf deploy.tar.gz -C /tmp/deploy-new
+            cp -r /tmp/deploy-new/dist $DEPLOY_PATH/dist
+            cp /tmp/deploy-new/package.json $DEPLOY_PATH/package.json
+            cp /tmp/deploy-new/package-lock.json $DEPLOY_PATH/package-lock.json
+            cp -r /tmp/deploy-new/prisma $DEPLOY_PATH/prisma
+
+            # Install dependencies
+            cd $DEPLOY_PATH
+            npm ci --production
+
+            # Generate Prisma client
+            npx prisma generate
+
+            # Apply migrations
+            npx prisma migrate deploy
+
+            # Restart PM2
+            pm2 restart oppoint-backend || pm2 start dist/index.js --name oppoint-backend --cwd $DEPLOY_PATH
+
+            # Cleanup
+            rm -rf /tmp/deploy.tar.gz /tmp/deploy-new
+
+            echo "Deployment complete at $(date)"
+
+      - name: Health check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_SERVER_IP }}
+          username: ${{ secrets.DEPLOY_SERVER_USER }}
+          password: ${{ secrets.DEPLOY_SERVER_PASSWORD }}
+          script: |
+            sleep 3
+            curl -s -o /dev/null -w "%{http_code}" http://localhost:4000

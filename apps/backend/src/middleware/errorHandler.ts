@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 
+import { logger } from '../services/logger';
+
 export class AppError extends Error {
   constructor(
     public statusCode: number,
@@ -35,6 +37,6 @@ export function errorHandler(
     return;
   }
 
-  console.error(`[${requestId}] Unhandled error on ${req.method} ${req.path}:`, err);
+  logger.error('unhandled.error', { requestId, method: req.method, path: req.path, error: err.message, stack: err.stack });
   res.status(500).json({ error: 'Internal server error', requestId });
 }

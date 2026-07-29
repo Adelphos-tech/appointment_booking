@@ -28,6 +28,11 @@ apps/backend/prisma/migrations/*/migration_lock.toml
 .DS_Store
 Thumbs.db
 
+# Secrets — never commit credentials
+deploy/DEPLOYMENT.md
+deploy/test-credentials.txt
+deploy/.env.production
+
 # Test coverage
 coverage/
 

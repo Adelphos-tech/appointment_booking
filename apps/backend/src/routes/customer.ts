@@ -8,6 +8,7 @@ import { agentTools, bookingAssistantSystemPrompt, chatCompletion, sanitizeMessa
 import { executeTool, type ToolContext } from '../services/agent';
 import { sendNotification } from '../services/notifications';
 import { stripHtmlTags } from '../services/sanitize';
+import { logger } from '../services/logger';
 
 const router = Router();
 
@@ -226,10 +227,13 @@ router.post('/bookings', validateBody(bookingSchema), async (req, res, next) => 
       throw new AppError(400, 'The selected staff does not belong to this centre.');
     }
 
-    // Generate a short human-readable booking reference
+    // Generate a short human-readable booking reference with uniqueness retry
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let bookingRef = 'SLC-';
-    for (let i = 0; i < 6; i++) bookingRef += chars[Math.floor(Math.random() * chars.length)];
+    function makeRef() {
+      let ref = 'SLC-';
+      for (let i = 0; i < 6; i++) ref += chars[Math.floor(Math.random() * chars.length)];
+      return ref;
+    }
 
     // Use a transaction with row-level locking to prevent double-booking race conditions
     const booking = await prisma.$transaction(async (tx) => {
@@ -243,6 +247,15 @@ router.post('/bookings', validateBody(bookingSchema), async (req, res, next) => 
       });
       if (conflict) {
         throw new AppError(409, 'This time slot is already booked. Please choose a different time.');
+      }
+
+      let bookingRef = makeRef();
+      let existing = await tx.booking.findUnique({ where: { bookingRef } });
+      let attempts = 0;
+      while (existing && attempts < 5) {
+        bookingRef = makeRef();
+        existing = await tx.booking.findUnique({ where: { bookingRef } });
+        attempts++;
       }
 
       return tx.booking.create({
@@ -269,7 +282,7 @@ router.post('/bookings', validateBody(bookingSchema), async (req, res, next) => 
       to: booking.customerContact,
       channel: 'sms',
       body: `Hi ${booking.customerName}, your appointment at ${booking.centre.name} is confirmed for ${booking.slotStart.toLocaleString()}. Ref: ${booking.bookingRef}`,
-    }).catch((err) => console.error('Failed to send notification', err));
+    }).catch((err) => logger.error('notification.sms.failed', { error: err.message }));
 
     if (booking.customerEmail) {
       await sendNotification({
@@ -277,7 +290,7 @@ router.post('/bookings', validateBody(bookingSchema), async (req, res, next) => 
         channel: 'email',
         subject: 'Appointment Confirmation',
         body: `Hi ${booking.customerName},\n\nYour appointment at ${booking.centre.name} is confirmed for ${booking.slotStart.toLocaleString()}.\n\nService: ${booking.service.name}\nStaff: ${booking.staff.name}\nBooking Ref: ${booking.bookingRef}\n\nThank you,\nSlotcare AI`,
-      }).catch((err) => console.error('Failed to send email', err));
+      }).catch((err) => logger.error('notification.email.failed', { error: err.message }));
     }
 
     res.status(201).json(booking);
@@ -398,7 +411,7 @@ router.post('/bookings/:bookingRef/cancel', async (req, res, next) => {
       to: updated.customerContact,
       channel: 'sms',
       body: `Hi ${updated.customerName}, your booking (Ref: ${updated.bookingRef}) at ${updated.centre.name} has been cancelled.`,
-    }).catch((err) => console.error('Failed to send cancellation notification', err));
+    }).catch((err) => logger.error('notification.cancel.failed', { error: err.message }));
 
     res.json({ message: 'Booking cancelled successfully', booking: updated });
   } catch (err) {
