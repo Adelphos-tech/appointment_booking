@@ -167,10 +167,20 @@ export async function chatCompletion(
       return await groqCompletion(messages, systemPrompt, tools);
     } catch (err) {
       logger.warn('groq.fallback', { error: (err as Error).message });
-      return ollamaCompletion(messages, systemPrompt, tools);
+      try {
+        return await ollamaCompletion(messages, systemPrompt, tools);
+      } catch (ollamaErr) {
+        logger.error('ai.all.providers.failed', { groq: (err as Error).message, ollama: (ollamaErr as Error).message });
+        return { content: 'I apologize, I am unable to process your request right now. Please try again later.' };
+      }
     }
   }
-  return ollamaCompletion(messages, systemPrompt, tools);
+  try {
+    return await ollamaCompletion(messages, systemPrompt, tools);
+  } catch (ollamaErr) {
+    logger.error('ai.ollama.failed', { error: (ollamaErr as Error).message });
+    return { content: 'I apologize, I am unable to process your request right now. Please try again later.' };
+  }
 }
 
 export const agentTools = [

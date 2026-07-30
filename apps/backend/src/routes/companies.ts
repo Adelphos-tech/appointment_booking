@@ -96,17 +96,18 @@ router.post('/', authenticate, requireApproved, validateBody(companySchema), asy
     }
 
     const slug = generateSlug(req.body.name);
-    // Handle collision by appending a random suffix if needed
     const existing = await prisma.company.findUnique({ where: { slug } });
     const finalSlug = existing ? `${slug}-${Math.random().toString(36).slice(2, 6)}` : slug;
 
-    const company = await prisma.company.create({
-      data: { ...req.body, slug: finalSlug },
-    });
-
-    await prisma.user.update({
-      where: { id: req.user!.id },
-      data: { companyId: company.id, role: 'company_owner' },
+    const company = await prisma.$transaction(async (tx) => {
+      const created = await tx.company.create({
+        data: { ...req.body, slug: finalSlug },
+      });
+      await tx.user.update({
+        where: { id: req.user!.id },
+        data: { companyId: created.id, role: 'company_owner' },
+      });
+      return created;
     });
 
     await logAudit(
@@ -160,7 +161,7 @@ router.put('/:id', authenticate, requireApproved, validateBody(companySchema.par
   }
 });
 
-router.delete('/:id', authenticate, async (req: AuthenticatedRequest, res, next) => {
+router.delete('/:id', authenticate, requireApproved, async (req: AuthenticatedRequest, res, next) => {
   try {
     const isSuper = req.user?.role === 'superadmin';
     const target = await prisma.company.findUnique({ where: { id: req.params.id } });
@@ -169,26 +170,13 @@ router.delete('/:id', authenticate, async (req: AuthenticatedRequest, res, next)
       throw new AppError(403, 'Forbidden');
     }
 
-    const centres = await prisma.centre.findMany({
-      where: { companyId: req.params.id },
-      select: { id: true },
-    });
-    const centreIds = centres.map((c) => c.id);
-
-    if (centreIds.length > 0) {
-      await prisma.booking.deleteMany({ where: { centreId: { in: centreIds } } });
-      await prisma.staff.deleteMany({ where: { centreId: { in: centreIds } } });
-      await prisma.service.deleteMany({ where: { centreId: { in: centreIds } } });
-      await prisma.centre.deleteMany({ where: { id: { in: centreIds } } });
-    }
-
     await prisma.company.delete({ where: { id: req.params.id } });
 
     await logAudit(
       'DELETE',
       'Company',
       req.params.id,
-      { deletedCentres: centreIds },
+      { deletedCompany: target.name },
       auditContextFromRequest(req),
     );
 

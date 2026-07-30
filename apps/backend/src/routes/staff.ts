@@ -126,7 +126,6 @@ router.delete('/:id', authenticate, requireApproved, async (req: AuthenticatedRe
       }
     }
     const staffId = req.params.id;
-    await prisma.booking.deleteMany({ where: { staffId } });
     await prisma.staff.delete({ where: { id: staffId } });
     await logAudit('DELETE', 'Staff', staffId, {}, auditContextFromRequest(req));
     res.status(204).send();

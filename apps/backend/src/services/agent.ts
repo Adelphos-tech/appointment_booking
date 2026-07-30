@@ -90,8 +90,8 @@ export async function executeTool(name: string, args: string, ctx: ToolContext =
         ],
       },
     });
-    const dayStart = new Date(`${date}T${centre.openTime}:00`);
-    const dayEnd = new Date(`${date}T${centre.closeTime}:00`);
+    const dayStart = new Date(`${date}T${centre.openTime}:00.000Z`);
+    const dayEnd = new Date(`${date}T${centre.closeTime}:00.000Z`);
 
     const bookings = await prisma.booking.findMany({
       where: {
@@ -114,8 +114,8 @@ export async function executeTool(name: string, args: string, ctx: ToolContext =
     for (const staff of staffQuery) {
       const { hours: dutyStartH, minutes: dutyStartM } = parseTime(staff.dutyStartTime);
       const { hours: dutyEndH, minutes: dutyEndM } = parseTime(staff.dutyEndTime);
-      const staffStart = new Date(`${date}T${String(dutyStartH).padStart(2, '0')}:${String(dutyStartM).padStart(2, '0')}:00`);
-      const staffEnd = new Date(`${date}T${String(dutyEndH).padStart(2, '0')}:${String(dutyEndM).padStart(2, '0')}:00`);
+      const staffStart = new Date(`${date}T${String(dutyStartH).padStart(2, '0')}:${String(dutyStartM).padStart(2, '0')}:00.000Z`);
+      const staffEnd = new Date(`${date}T${String(dutyEndH).padStart(2, '0')}:${String(dutyEndM).padStart(2, '0')}:00.000Z`);
       const start = staffStart < dayStart ? dayStart : staffStart;
       const end = staffEnd > dayEnd ? dayEnd : staffEnd;
       const ranges = bookedRanges.get(staff.id) || [];

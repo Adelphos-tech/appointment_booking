@@ -159,6 +159,9 @@ function resolveStaticPath(): string {
 }
 const staticPath = resolveStaticPath();
 app.use(express.static(staticPath));
+app.get('/api/*', (_req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
+});
 app.get('*', (_req, res) => {
   res.sendFile(path.join(staticPath, 'index.html'));
 });

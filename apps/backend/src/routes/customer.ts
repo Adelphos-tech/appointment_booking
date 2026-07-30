@@ -132,7 +132,7 @@ router.get('/availability', validateQuery(availabilityQuerySchema), async (req, 
         ...(normalizedGender && normalizedGender !== 'any'
           ? {
               gender: {
-                in: normalizedGender === 'female' ? ['Female', 'Feemale'] : [preferredGender || 'Male'],
+                in: normalizedGender === 'female' ? ['Female'] : [preferredGender || 'Male'],
                 mode: 'insensitive',
               },
             }
@@ -382,7 +382,9 @@ router.post('/bookings/:bookingRef/cancel', async (req, res, next) => {
   try {
     const { bookingRef } = req.params;
     const { customerContact } = req.body;
-    if (!customerContact) throw new AppError(400, 'customerContact is required');
+    if (!customerContact || typeof customerContact !== 'string' || customerContact.trim().length < 3) {
+      throw new AppError(400, 'customerContact is required');
+    }
 
     const booking = await prisma.booking.findUnique({ where: { bookingRef } });
     if (!booking) throw new AppError(404, 'Booking not found');

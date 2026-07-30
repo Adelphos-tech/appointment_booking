@@ -119,7 +119,6 @@ router.delete('/:id', authenticate, requireApproved, async (req: AuthenticatedRe
       }
     }
     const serviceId = req.params.id;
-    await prisma.booking.deleteMany({ where: { serviceId } });
     await prisma.service.delete({ where: { id: serviceId } });
     await logAudit('DELETE', 'Service', serviceId, {}, auditContextFromRequest(req));
     res.status(204).send();

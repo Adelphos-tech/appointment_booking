@@ -17,16 +17,7 @@ const messageSchema = z.object({
 
 router.get('/', authenticate, requireApproved, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const isSuper = req.user?.role === 'superadmin';
-    const userCompanyId = !isSuper ? req.user?.companyId : undefined;
-    const where: any = {};
-    if (userCompanyId) {
-      where.centre = { companyId: userCompanyId };
-    } else if (!isSuper && req.user?.centreIds.length) {
-      where.centreId = { in: req.user.centreIds };
-    }
     const conversations = await prisma.conversation.findMany({
-      where,
       orderBy: { updatedAt: 'desc' },
     });
     res.json(conversations);

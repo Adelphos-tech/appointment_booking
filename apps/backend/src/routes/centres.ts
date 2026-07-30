@@ -126,9 +126,6 @@ router.delete('/:id', authenticate, requireApproved, requireRole('superadmin', '
     if (userCompanyId && centre.companyId !== userCompanyId) throw new AppError(403, 'Forbidden');
 
     const centreId = req.params.id;
-    await prisma.booking.deleteMany({ where: { centreId } });
-    await prisma.staff.deleteMany({ where: { centreId } });
-    await prisma.service.deleteMany({ where: { centreId } });
     await prisma.centre.delete({ where: { id: centreId } });
 
     await logAudit('DELETE', 'Centre', centreId, { companyId: centre.companyId }, auditContextFromRequest(req));

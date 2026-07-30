@@ -145,7 +145,11 @@ export async function deleteService(id: string) {
 
 export async function getBookings(params?: Record<string, string>) {
   const res = await api.get('/bookings', { params });
-  return res.data as Booking[];
+  const data = res.data;
+  if (data && data.data && data.pagination) {
+    return data.data as Booking[];
+  }
+  return data as Booking[];
 }
 
 export async function createBooking(data: Partial<Booking>) {
@@ -184,7 +188,7 @@ export async function getConversation(customerContact: string) {
 }
 
 export async function getPublicBookings(customerContact: string) {
-  const res = await api.get('/bookings', { params: { customerContact, limit: '50' } });
+  const res = await axios.get('/public/bookings', { params: { customerContact, limit: '50' } });
   return res.data as { bookings: Booking[] };
 }
 

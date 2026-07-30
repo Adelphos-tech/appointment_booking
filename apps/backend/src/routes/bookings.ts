@@ -38,23 +38,6 @@ const statusUpdateSchema = z.object({
   paymentStatus: z.enum(['Pending', 'Paid', 'Refunded', 'Failed']).optional(),
 });
 
-/** Check for overlapping bookings for the same staff member */
-async function checkDoubleBooking(staffId: string, slotStart: Date, slotEnd: Date, excludeBookingId?: string) {
-  const where: any = {
-    staffId,
-    status: { in: ['Booked', 'ManuallyBooked', 'Blocked'] },
-    slotStart: { lt: slotEnd },
-    slotEnd: { gt: slotStart },
-  };
-  if (excludeBookingId) {
-    where.id = { not: excludeBookingId };
-  }
-  const conflict = await prisma.booking.findFirst({ where });
-  if (conflict) {
-    throw new AppError(409, 'This time slot is already booked for the selected staff member.');
-  }
-}
-
 router.get('/', authenticate, async (req: AuthenticatedRequest, res, next) => {
   try {
     const isSuper = req.user?.role === 'superadmin';
@@ -93,7 +76,10 @@ router.get('/', authenticate, async (req: AuthenticatedRequest, res, next) => {
       }),
       prisma.booking.count({ where }),
     ]);
-    res.json(bookings);
+    res.json({
+      data: bookings,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     next(err);
   }
@@ -216,16 +202,28 @@ router.put('/:id', authenticate, requireApproved, validateBody(bookingSchema.par
     if (req.body.slotStart) update.slotStart = new Date(req.body.slotStart);
     if (req.body.slotEnd) update.slotEnd = new Date(req.body.slotEnd);
 
-    // If changing time or staff, check for double booking
+    // If changing time or staff, check for double booking inside a transaction
     if (req.body.slotStart || req.body.slotEnd || req.body.staffId) {
       const existing = await prisma.booking.findUnique({ where: { id: req.params.id } });
       if (existing) {
-        await checkDoubleBooking(
-          (req.body.staffId || existing.staffId) as string,
-          update.slotStart ? (update.slotStart as Date) : existing.slotStart,
-          update.slotEnd ? (update.slotEnd as Date) : existing.slotEnd,
-          req.params.id,
-        );
+        const staffId = (req.body.staffId || existing.staffId) as string;
+        const slotStart = update.slotStart ? (update.slotStart as Date) : existing.slotStart;
+        const slotEnd = update.slotEnd ? (update.slotEnd as Date) : existing.slotEnd;
+
+        await prisma.$transaction(async (tx) => {
+          const conflict = await tx.booking.findFirst({
+            where: {
+              staffId,
+              status: { in: ['Booked', 'ManuallyBooked', 'Blocked'] },
+              slotStart: { lt: slotEnd },
+              slotEnd: { gt: slotStart },
+              id: { not: req.params.id },
+            },
+          });
+          if (conflict) {
+            throw new AppError(409, 'This time slot is already booked for the selected staff member.');
+          }
+        }, { isolationLevel: 'Serializable' });
       }
     }
 
