@@ -63,6 +63,7 @@ async function sendWhatsApp(to: string, body: string): Promise<void> {
       type: 'text',
       text: { preview_url: false, body },
     }),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!res.ok) {

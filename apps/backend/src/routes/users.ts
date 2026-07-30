@@ -13,7 +13,9 @@ const router = Router();
 
 const createUserSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/, {
+    message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character',
+  }),
   name: z.string().optional(),
   role: z.enum(['admin', 'company_owner']).default('admin'),
   status: z.enum(['Pending', 'Approved', 'Rejected']).default('Pending'),
@@ -23,7 +25,9 @@ const createUserSchema = z.object({
 
 const updateUserSchema = z.object({
   email: z.string().email().optional(),
-  password: z.string().min(6).optional(),
+  password: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/, {
+    message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character',
+  }).optional(),
   name: z.string().optional(),
   role: z.enum(['admin', 'company_owner']).optional(),
   status: z.enum(['Pending', 'Approved', 'Rejected']).optional(),
@@ -35,6 +39,9 @@ router.get('/', authenticate, requireRole('superadmin'), async (_req, res, next)
   try {
     const users = await prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, email: true, name: true, role: true, status: true, centreIds: true, companyId: true, createdAt: true,
+      },
     });
     res.json(users.map((u: any) => ({
       id: u.id, email: u.email, name: u.name, role: u.role, status: u.status, centreIds: u.centreIds || [], companyId: u.companyId, createdAt: u.createdAt,

@@ -65,7 +65,7 @@ const corsOptions: cors.CorsOptions = config.allowedOrigins.includes('*')
 app.use(cors(corsOptions));
 
 // Capture raw body for WhatsApp webhook signature verification before JSON parsing
-app.use('/api/webhooks/whatsapp', express.raw({ type: 'application/json' }));
+app.use('/api/webhooks/whatsapp', express.raw({ type: 'application/json', limit: '1mb' }));
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
@@ -120,10 +120,13 @@ const chatLimiter = rateLimit({
   message: { error: 'Too many chat messages, please slow down.' },
 });
 
-// Health check with DB connectivity test
+// Health check with DB connectivity test (with timeout)
 app.get('/api/health', async (_req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    const healthTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('DB health check timeout')), 3000),
+    );
+    await Promise.race([prisma.$queryRaw`SELECT 1`, healthTimeout]);
     res.json({ status: 'ok', db: 'connected', timestamp: new Date().toISOString() });
   } catch {
     res.status(503).json({ status: 'degraded', db: 'disconnected', timestamp: new Date().toISOString() });
@@ -173,6 +176,9 @@ if (process.env.NODE_ENV !== 'test') {
   server = app.listen(config.port, () => {
     logger.info('server.start', { port: config.port });
   });
+  server.setTimeout(30000);
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
 }
 
 // Graceful shutdown with Prisma disconnect
@@ -189,8 +195,12 @@ async function gracefulShutdown() {
     logger.info('shutdown.complete');
     process.exit(0);
   }
-  // Force shutdown after 10 seconds
-  setTimeout(() => process.exit(1), 10000);
+  // Force shutdown after 10 seconds if server.close hasn't completed
+  const forceExitTimer = setTimeout(() => {
+    logger.error('shutdown.force_exit', { reason: 'server.close did not complete in 10s' });
+    process.exit(1);
+  }, 10000);
+  forceExitTimer.unref();
 }
 
 process.on('SIGTERM', gracefulShutdown);

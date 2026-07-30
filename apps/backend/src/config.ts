@@ -1,6 +1,7 @@
 import path from 'path';
 
 import dotenv from 'dotenv';
+import { logger } from './services/logger';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -12,6 +13,9 @@ if (isProduction && (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 
 }
 if (isProduction && (!process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGINS.includes('*'))) {
   throw new Error('ALLOWED_ORIGINS must be set to explicit domains in production (wildcard "*" is not allowed).');
+}
+if (isProduction && !process.env.META_APP_SECRET) {
+  logger.warn('meta.app_secret.missing', { message: 'META_APP_SECRET not set — WhatsApp webhook signature verification will reject all incoming messages.' });
 }
 
 export const config = {

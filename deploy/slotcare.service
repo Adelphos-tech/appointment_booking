@@ -1,13 +1,18 @@
 [Unit]
 Description=Slotcare Booking App
-After=network.target
+After=network.target postgresql.service
+Wants=postgresql.service
 
 [Service]
 Type=simple
 User=root
 WorkingDirectory=/var/www/oppoint_booking
+EnvironmentFile=/var/www/oppoint_booking/apps/backend/.env
 ExecStart=/usr/bin/node /var/www/oppoint_booking/apps/backend/dist/index.js
 Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=15
 Environment=NODE_ENV=production
 Environment=PORT=4000
 

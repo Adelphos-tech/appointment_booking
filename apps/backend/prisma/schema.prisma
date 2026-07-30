@@ -128,6 +128,8 @@ model Booking {
 
   @@index([centreId, slotStart])
   @@index([staffId, slotStart])
+  @@index([serviceId])
+  @@index([status])
   @@index([customerContact])
 }
 
@@ -158,6 +160,8 @@ model Waitlist {
   createdAt       DateTime @default(now())
 
   @@index([centreId])
+  @@index([serviceId])
+  @@index([customerContact])
 }
 
 model OptOut {

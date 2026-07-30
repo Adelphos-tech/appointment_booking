@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 
 import { config } from '../config';
 import { prisma } from '../prisma';
@@ -8,8 +10,21 @@ import { agentTools, bookingAssistantSystemPrompt, chatCompletion, sanitizeMessa
 import { executeTool } from '../services/agent';
 import { sendNotification } from '../services/notifications';
 import { logger } from '../services/logger';
+import { stripHtmlTags } from '../services/sanitize';
 
 const router = Router();
+
+const optOutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many opt-out requests. Please try again later.' },
+});
+
+const optOutSchema = z.object({
+  customerContact: z.string().min(3).max(20).transform((s) => stripHtmlTags(s.trim())),
+});
 
 router.get('/whatsapp', (req, res) => {
   const mode = req.query['hub.mode'];
@@ -111,16 +126,17 @@ router.post('/whatsapp', async (req, res, next) => {
   }
 });
 
-router.post('/opt-out', async (req, res, next) => {
+router.post('/opt-out', optOutLimiter, async (req, res, next) => {
   try {
-    const customerContact = req.body?.customerContact;
-    if (!customerContact) {
-      res.status(400).json({ error: 'customerContact is required' });
+    const result = optOutSchema.safeParse(req.body);
+    if (!result.success) {
+      res.status(400).json({ error: 'Valid customerContact is required' });
       return;
     }
+    const { customerContact } = result.data;
     await prisma.optOut.upsert({
-      where: { customerContact },
-      create: { customerContact },
+      where: { customerContact: customerContact as string },
+      create: { customerContact: customerContact as string },
       update: {},
     });
     res.json({ optedOut: true });

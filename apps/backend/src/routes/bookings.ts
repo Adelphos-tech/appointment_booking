@@ -202,7 +202,8 @@ router.put('/:id', authenticate, requireApproved, validateBody(bookingSchema.par
     if (req.body.slotStart) update.slotStart = new Date(req.body.slotStart);
     if (req.body.slotEnd) update.slotEnd = new Date(req.body.slotEnd);
 
-    // If changing time or staff, check for double booking inside a transaction
+    // If changing time or staff, check for double booking and update atomically
+    let booking;
     if (req.body.slotStart || req.body.slotEnd || req.body.staffId) {
       const existing = await prisma.booking.findUnique({ where: { id: req.params.id } });
       if (existing) {
@@ -210,7 +211,7 @@ router.put('/:id', authenticate, requireApproved, validateBody(bookingSchema.par
         const slotStart = update.slotStart ? (update.slotStart as Date) : existing.slotStart;
         const slotEnd = update.slotEnd ? (update.slotEnd as Date) : existing.slotEnd;
 
-        await prisma.$transaction(async (tx) => {
+        booking = await prisma.$transaction(async (tx) => {
           const conflict = await tx.booking.findFirst({
             where: {
               staffId,
@@ -223,15 +224,22 @@ router.put('/:id', authenticate, requireApproved, validateBody(bookingSchema.par
           if (conflict) {
             throw new AppError(409, 'This time slot is already booked for the selected staff member.');
           }
+          return tx.booking.update({
+            where: { id: req.params.id },
+            data: update,
+            include: { centre: true, staff: true, service: true },
+          });
         }, { isolationLevel: 'Serializable' });
+      } else {
+        throw new AppError(404, 'Booking not found');
       }
+    } else {
+      booking = await prisma.booking.update({
+        where: { id: req.params.id },
+        data: update,
+        include: { centre: true, staff: true, service: true },
+      });
     }
-
-    const booking = await prisma.booking.update({
-      where: { id: req.params.id },
-      data: update,
-      include: { centre: true, staff: true, service: true },
-    });
     await logAudit('UPDATE', 'Booking', booking.id, { customerName: booking.customerName, changes: update }, auditContextFromRequest(req));
     res.json(booking);
   } catch (err) {
