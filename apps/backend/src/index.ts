@@ -156,16 +156,31 @@ app.use('/public', customerRouter);
 // Serve frontend static files in production
 function resolveStaticPath(): string {
   if (process.env.WEB_DIST_PATH) return path.resolve(process.env.WEB_DIST_PATH);
-  const bundled = path.resolve(__dirname, '../frontend');
+  // When compiled, __dirname is dist/ — frontend is at dist/frontend (bundled by build script)
+  const bundled = path.resolve(__dirname, 'frontend');
   if (fs.existsSync(bundled)) return bundled;
-  return path.resolve(__dirname, '../../web/dist');
+  // Dev mode fallback: __dirname is src/ — frontend is at ../../web/dist
+  const devFallback = path.resolve(__dirname, '../../web/dist');
+  if (fs.existsSync(devFallback)) return devFallback;
+  return path.resolve(__dirname, '../frontend');
 }
 const staticPath = resolveStaticPath();
-app.use(express.static(staticPath));
+// Serve static assets with long cache (hashed filenames make this safe)
+app.use('/assets', express.static(path.join(staticPath, 'assets'), {
+  maxAge: '1y',
+  immutable: true,
+}));
+// Serve other static files (favicon, etc.) — but NOT index.html
+app.use(express.static(staticPath, {
+  maxAge: '1h',
+  index: false, // Don't serve index.html automatically
+}));
 app.get('/api/*', (_req, res) => {
   res.status(404).json({ error: 'API endpoint not found' });
 });
+// SPA fallback: index.html must never be cached so new deploys are picked up immediately
 app.get('*', (_req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(staticPath, 'index.html'));
 });
 
