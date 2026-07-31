@@ -67,36 +67,64 @@ async function groqCompletion(
 
   const msgs = truncateMessages(messages);
 
-  const completion = await groqClient.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    max_tokens: 1024,
-    messages: [
-      ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
-      ...msgs.map((m) => {
-        if (m.role === 'tool') {
-          return { role: 'tool' as const, content: m.content, tool_call_id: m.tool_call_id || '' };
+  try {
+    const completion = await groqClient.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 1024,
+      messages: [
+        ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+        ...msgs.map((m) => {
+          if (m.role === 'tool') {
+            return { role: 'tool' as const, content: m.content, tool_call_id: m.tool_call_id || '' };
+          }
+          return { role: m.role as 'user' | 'assistant' | 'system', content: m.content };
+        }),
+      ],
+      ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' } : {}),
+    });
+
+    const message = completion.choices[0]?.message;
+    const content = message?.content?.trim() || '';
+
+    if (message?.tool_calls && message.tool_calls.length > 0) {
+      return {
+        content,
+        toolCalls: message.tool_calls.map((tc: any) => ({
+          id: tc.id,
+          name: tc.function?.name || '',
+          arguments: tc.function?.arguments || '{}',
+        })),
+      };
+    }
+
+    return { content };
+  } catch (err: any) {
+    // Groq sometimes returns 400 with tool_use_failed when the model outputs
+    // tool calls as XML text instead of structured tool_calls.
+    // Parse the failed_generation XML to extract the tool call manually.
+    if (err?.status === 400 && err?.error?.error?.failed_generation) {
+      const failedGen = err.error.error.failed_generation as string;
+      const toolMatch = failedGen.match(/<function=(\w+)\((.*)\)<\/function>/);
+      if (toolMatch) {
+        const toolName = toolMatch[1];
+        let toolArgs = '{}';
+        try {
+          toolArgs = JSON.parse(toolMatch[2].trim());
+        } catch {
+          // If JSON parse fails, try to extract the arguments as a simple object
+          const argsMatch = toolMatch[2].match(/\{[^}]+\}/);
+          if (argsMatch) {
+            try { toolArgs = JSON.parse(argsMatch[0]); } catch { /* keep default */ }
+          }
         }
-        return { role: m.role as 'user' | 'assistant' | 'system', content: m.content };
-      }),
-    ],
-    ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' } : {}),
-  });
-
-  const message = completion.choices[0]?.message;
-  const content = message?.content?.trim() || '';
-
-  if (message?.tool_calls && message.tool_calls.length > 0) {
-    return {
-      content,
-      toolCalls: message.tool_calls.map((tc: any) => ({
-        id: tc.id,
-        name: tc.function?.name || '',
-        arguments: tc.function?.arguments || '{}',
-      })),
-    };
+        return {
+          content: '',
+          toolCalls: [{ id: `call_${Date.now()}`, name: toolName, arguments: typeof toolArgs === 'string' ? toolArgs : JSON.stringify(toolArgs) }],
+        };
+      }
+    }
+    throw err;
   }
-
-  return { content };
 }
 
 async function ollamaCompletion(
